@@ -1,0 +1,1725 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>BOUNCE//BACK — Every Failure Builds the Way</title>
+<style>
+  * {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+    user-select: none;
+  }
+
+  :root {
+    --pixel-font: "Courier New", Courier, "Lucida Console", Monaco, monospace;
+  }
+
+  body, html {
+    width: 100%;
+    height: 100%;
+    background-color: #07060e;
+    color: #eef2ff;
+    font-family: var(--pixel-font);
+    overflow: hidden;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+  }
+
+  #game-wrapper {
+    position: relative;
+    width: 100vw;
+    height: 100vh;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    background: radial-gradient(circle at center, #110d24 0%, #05040a 100%);
+  }
+
+  canvas {
+    display: block;
+    image-rendering: pixelated;
+    image-rendering: crisp-edges;
+    box-shadow: 0 0 60px rgba(0, 240, 255, 0.15), 0 0 120px rgba(176, 38, 255, 0.15);
+    border: 2px solid #231d42;
+    max-width: 100%;
+    max-height: 100%;
+  }
+
+  #crt-overlay {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    background: linear-gradient(
+      rgba(18, 16, 16, 0) 50%,
+      rgba(0, 0, 0, 0.22) 50%
+    ), linear-gradient(
+      90deg,
+      rgba(255, 0, 0, 0.03),
+      rgba(0, 255, 0, 0.01),
+      rgba(0, 0, 255, 0.03)
+    );
+    background-size: 100% 3px, 6px 100%;
+    z-index: 5;
+  }
+
+  .screen-overlay {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    background: rgba(7, 6, 16, 0.84);
+    z-index: 10;
+    padding: 20px;
+    text-align: center;
+  }
+
+  .hidden {
+    display: none !important;
+  }
+
+  .pixel-title {
+    font-family: var(--pixel-font);
+    font-weight: 900;
+    font-size: clamp(28px, 5vw, 54px);
+    color: #fff;
+    text-shadow:
+      4px 4px 0px #b026ff,
+      -3px -3px 0px #00f0ff,
+      0 0 30px rgba(0, 240, 255, 0.7);
+    letter-spacing: 3px;
+    margin-bottom: 14px;
+    animation: pulseTitle 3s infinite ease-in-out;
+  }
+
+  @keyframes pulseTitle {
+    0%, 100% { transform: translateY(0px); }
+    50% { transform: translateY(-5px); }
+  }
+
+  .subtitle {
+    font-family: var(--pixel-font);
+    font-weight: 800;
+    font-size: clamp(11px, 1.5vw, 15px);
+    color: #00f0ff;
+    letter-spacing: 2px;
+    margin-bottom: 32px;
+    text-transform: uppercase;
+  }
+
+  .btn-group {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    width: 100%;
+    max-width: 340px;
+  }
+
+  .pixel-btn {
+    font-family: var(--pixel-font);
+    font-weight: 900;
+    font-size: 14px;
+    padding: 15px 20px;
+    background: #14102b;
+    color: #fff;
+    border: 3px solid #00f0ff;
+    box-shadow: 4px 4px 0px #b026ff;
+    cursor: pointer;
+    transition: transform 0.1s, background 0.15s, box-shadow 0.1s;
+    text-transform: uppercase;
+  }
+
+  .pixel-btn:hover {
+    background: #1f1842;
+    transform: translate(-2px, -2px);
+    box-shadow: 6px 6px 0px #ff2a85;
+    border-color: #fff;
+  }
+
+  .pixel-btn:active {
+    transform: translate(2px, 2px);
+    box-shadow: 1px 1px 0px #b026ff;
+  }
+
+  .pixel-btn.secondary {
+    border-color: #7c5cff;
+    box-shadow: 4px 4px 0px #2b215c;
+    font-size: 12px;
+    padding: 12px 16px;
+  }
+
+  .level-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(175px, 1fr));
+    gap: 14px;
+    width: 100%;
+    max-width: 820px;
+    margin-bottom: 26px;
+  }
+
+  .level-card {
+    background: #120e26;
+    border: 3px solid #3c2f7a;
+    padding: 16px 12px;
+    cursor: pointer;
+    transition: all 0.15s;
+    text-align: center;
+  }
+
+  .level-card:hover {
+    border-color: #00f0ff;
+    transform: translateY(-3px);
+    box-shadow: 0 6px 0 #b026ff;
+  }
+
+  .level-card.completed {
+    border-color: #00ff9d;
+  }
+
+  .level-num {
+    font-weight: 800;
+    font-size: 11px;
+    color: #ff2a85;
+    margin-bottom: 8px;
+  }
+
+  .level-name {
+    font-weight: 900;
+    font-size: 13px;
+    color: #fff;
+    line-height: 1.4;
+    margin-bottom: 10px;
+  }
+
+  .level-meta {
+    font-size: 11px;
+    color: #9ba3d4;
+  }
+
+  .info-panel {
+    background: #100c24;
+    border: 3px solid #00f0ff;
+    box-shadow: 6px 6px 0 #b026ff;
+    padding: 24px;
+    max-width: 680px;
+    text-align: left;
+    margin-bottom: 24px;
+    line-height: 1.7;
+    font-size: 13px;
+  }
+
+  .info-panel h3 {
+    font-weight: 900;
+    font-size: 14px;
+    color: #00f0ff;
+    margin-bottom: 12px;
+  }
+
+  .key-badge {
+    display: inline-block;
+    background: #231b4d;
+    border: 2px solid #ff2a85;
+    color: #fff;
+    padding: 2px 7px;
+    font-weight: 800;
+    font-size: 11px;
+    margin-right: 4px;
+  }
+
+  #hud-controls {
+    position: absolute;
+    top: 12px;
+    right: 16px;
+    z-index: 8;
+    display: flex;
+    gap: 8px;
+  }
+
+  .hud-mini-btn {
+    font-family: var(--pixel-font);
+    font-weight: 800;
+    font-size: 10px;
+    background: rgba(16, 12, 36, 0.9);
+    color: #00f0ff;
+    border: 2px solid #3c2f7a;
+    padding: 7px 10px;
+    cursor: pointer;
+  }
+
+  .hud-mini-btn:hover {
+    border-color: #00f0ff;
+    color: #fff;
+  }
+
+  .story-box {
+    max-width: 660px;
+    font-weight: 800;
+    font-size: 14px;
+    line-height: 1.9;
+    color: #e2e8ff;
+    margin-bottom: 28px;
+    background: rgba(16, 12, 36, 0.92);
+    border: 3px solid #ff2a85;
+    padding: 24px;
+    box-shadow: 6px 6px 0 #00f0ff;
+  }
+</style>
+</head>
+<body>
+
+<div id="game-wrapper">
+  <canvas id="gameCanvas" width="1280" height="720"></canvas>
+  <div id="crt-overlay"></div>
+
+  <div id="hud-controls" class="hidden">
+    <button class="hud-mini-btn" id="btn-clear-echoes" title="Clear Recorded Echoes [C]">CLR ECHOES [C]</button>
+    <button class="hud-mini-btn" id="btn-restart" title="Record Echo & Retry [R]">ECHO RESET [R]</button>
+    <button class="hud-mini-btn" id="btn-mute">SFX: ON [M]</button>
+    <button class="hud-mini-btn" id="btn-pause">PAUSE [ESC]</button>
+  </div>
+
+  <!-- TITLE SCREEN -->
+  <div id="screen-title" class="screen-overlay">
+    <div class="pixel-title">BOUNCE//BACK</div>
+    <div class="subtitle">Every Failure Builds the Way</div>
+    <div class="btn-group">
+      <button class="pixel-btn" id="btn-play">&#9654; START SEQUENCE</button>
+      <button class="pixel-btn secondary" id="btn-levels">&#9672; SELECT SECTOR</button>
+      <button class="pixel-btn secondary" id="btn-how">? HOW TO PLAY</button>
+    </div>
+  </div>
+
+  <!-- HOW TO PLAY -->
+  <div id="screen-how" class="screen-overlay hidden">
+    <div class="info-panel">
+      <h3>// SYSTEM PROTOCOLS</h3>
+      <p style="margin-bottom:10px;">You are a resonant pixel core trapped in a shattered dimension. You bounce automatically upon touching surfaces.</p>
+      <p style="margin-bottom:8px;"><span class="key-badge">A / D</span> or <span class="key-badge">&#9664; / &#9654;</span> Steer horizontally with air momentum.</p>
+      <p style="margin-bottom:8px;"><span class="key-badge">SPACE</span> Hold to <strong>Charge Super-Bounce</strong> or tap mid-air for a <strong>Fast-Drop Slam</strong>.</p>
+      <p style="margin-bottom:8px;"><span class="key-badge">R</span> <strong>Echo Reset:</strong> Turns your current run into a physical <strong>ECHO</strong> (up to 3 active) and respawns you.</p>
+      <p style="margin-bottom:12px;"><span class="key-badge">C</span> Purge Echoes. <span class="key-badge">ESC</span> Pause. <span class="key-badge">M</span> Mute.</p>
+      <h3 style="color:#ff2a85;">// THE ECHO MECHANIC</h3>
+      <p>Echoes are solid light! Bounce off past versions of yourself like springboards, let them hold down pressure switches, and weave up to 3 timelines together.</p>
+    </div>
+    <button class="pixel-btn" id="btn-how-back">&#9664; BACK</button>
+  </div>
+
+  <!-- LEVEL SELECT -->
+  <div id="screen-levels" class="screen-overlay hidden">
+    <div class="pixel-title" style="font-size:28px; margin-bottom:24px;">SELECT SECTOR</div>
+    <div class="level-grid" id="level-grid"></div>
+    <button class="pixel-btn secondary" id="btn-levels-back">&#9664; MAIN MENU</button>
+  </div>
+
+  <!-- PAUSE SCREEN -->
+  <div id="screen-pause" class="screen-overlay hidden">
+    <div class="pixel-title" style="font-size:32px; margin-bottom:28px;">SYSTEM PAUSED</div>
+    <div class="btn-group">
+      <button class="pixel-btn" id="btn-resume">&#9654; RESUME</button>
+      <button class="pixel-btn secondary" id="btn-pause-restart">&#8635; ECHO RESET [R]</button>
+      <button class="pixel-btn secondary" id="btn-pause-clear">&#10005; PURGE ECHOES [C]</button>
+      <button class="pixel-btn secondary" id="btn-pause-menu">&#8962; MAIN MENU</button>
+    </div>
+  </div>
+
+  <!-- LEVEL COMPLETE SCREEN -->
+  <div id="screen-complete" class="screen-overlay hidden">
+    <div class="pixel-title" style="font-size:30px; color:#00ff9d;">SECTOR RESTORED</div>
+    <div class="subtitle" id="complete-level-name">LEVEL 1</div>
+    <div class="info-panel" style="text-align:center; max-width:440px;">
+      <p id="complete-stats" style="font-size:14px; line-height:2;"></p>
+    </div>
+    <div class="btn-group">
+      <button class="pixel-btn" id="btn-next-level">NEXT SECTOR &#9654;</button>
+      <button class="pixel-btn secondary" id="btn-replay-level">&#8635; REPLAY SECTOR</button>
+    </div>
+  </div>
+
+  <!-- FINAL ENDING SCREEN -->
+  <div id="screen-ending" class="screen-overlay hidden">
+    <div class="pixel-title" style="font-size:30px; color:#00f0ff;">DIMENSION RECONSTRUCTED</div>
+    <div class="story-box" id="ending-text">
+      Every fall left a trace of light.<br>
+      Every misstep became a foothold.<br><br>
+      The bridge across the void wasn't built from stone—it was woven from every version of you that bounced back.<br><br>
+      <span style="color:#00ff9d;">TOTAL ECHOES WOVEN: <span id="final-echo-total">0</span></span><br>
+      <span style="color:#ff2a85;">SHARDS RECOVERED: <span id="final-shard-total">0</span> / 15</span>
+    </div>
+    <div class="btn-group">
+      <button class="pixel-btn" id="btn-ending-menu">&#8962; RETURN TO TITLE</button>
+    </div>
+  </div>
+</div>
+
+<script>
+(() => {
+  'use strict';
+
+  const PIXEL_FONT = '"Courier New", Courier, "Lucida Console", Monaco, monospace';
+  const canvas = document.getElementById('gameCanvas');
+  const ctx = canvas ? canvas.getContext('2d') : null;
+  if (!canvas || !ctx) return;
+
+  const W = 1280;
+  const H = 720;
+
+  // =========================================================================
+  // 1. SAFE RETRO SYNTH AUDIO ENGINE
+  // =========================================================================
+  class SoundEngine {
+    constructor() {
+      this.ctx = null;
+      this.muted = false;
+    }
+
+    init() {
+      if (this.muted) return;
+      try {
+        if (!this.ctx) {
+          const AudioCtx = window.AudioContext || window.webkitAudioContext;
+          if (AudioCtx) this.ctx = new AudioCtx();
+        }
+        if (this.ctx && this.ctx.state === 'suspended') {
+          this.ctx.resume().catch(() => {});
+        }
+      } catch (_) {}
+    }
+
+    playTone(freq, endFreq, duration, type = 'square', gainVal = 0.11, delay = 0) {
+      if (this.muted) return;
+      this.init();
+      if (!this.ctx) return;
+      try {
+        const now = this.ctx.currentTime + delay;
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        osc.type = type;
+        osc.frequency.setValueAtTime(freq, now);
+        if (endFreq !== freq) {
+          osc.frequency.exponentialRampToValueAtTime(Math.max(20, endFreq), now + duration);
+        }
+        gain.gain.setValueAtTime(gainVal, now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + duration);
+        osc.connect(gain);
+        gain.connect(this.ctx.destination);
+        osc.start(now);
+        osc.stop(now + duration);
+      } catch (_) {}
+    }
+
+    bounce(combo = 1, charged = false) {
+      const base = 220 + Math.min(combo, 8) * 35;
+      if (charged) {
+        this.playTone(base, base * 2.4, 0.22, 'square', 0.15);
+        this.playTone(base * 1.5, base * 3, 0.18, 'triangle', 0.13, 0.03);
+      } else {
+        this.playTone(base, base * 1.75, 0.13, 'square', 0.1);
+      }
+    }
+
+    superSpring() {
+      this.playTone(300, 920, 0.28, 'square', 0.14);
+      this.playTone(450, 1200, 0.25, 'sawtooth', 0.08, 0.04);
+    }
+
+    echoBounce() {
+      this.playTone(440, 880, 0.18, 'triangle', 0.15);
+      this.playTone(660, 1100, 0.15, 'sine', 0.11, 0.02);
+    }
+
+    slam() {
+      this.playTone(320, 75, 0.14, 'sawtooth', 0.12);
+    }
+
+    shard() {
+      this.playTone(660, 990, 0.09, 'square', 0.11);
+      this.playTone(990, 1320, 0.14, 'square', 0.11, 0.08);
+    }
+
+    switchOn() {
+      this.playTone(330, 520, 0.11, 'square', 0.1);
+    }
+
+    switchOff() {
+      this.playTone(440, 260, 0.11, 'square', 0.08);
+    }
+
+    checkpoint() {
+      this.playTone(440, 440, 0.08, 'square', 0.09);
+      this.playTone(554, 554, 0.08, 'square', 0.09, 0.08);
+      this.playTone(659, 880, 0.18, 'square', 0.11, 0.16);
+    }
+
+    echoSpawn() {
+      this.playTone(520, 190, 0.28, 'sawtooth', 0.13);
+      this.playTone(260, 520, 0.25, 'triangle', 0.11, 0.06);
+    }
+
+    hazardHit() {
+      this.playTone(180, 45, 0.32, 'sawtooth', 0.16);
+      this.playTone(130, 38, 0.32, 'square', 0.14, 0.03);
+    }
+
+    win() {
+      [523.25, 659.25, 783.99, 1046.50].forEach((n, i) => {
+        this.playTone(n, n * 1.02, 0.18, 'square', 0.12, i * 0.1);
+      });
+    }
+  }
+
+  const sfx = new SoundEngine();
+
+  // =========================================================================
+  // 2. PIXEL ART PALETTE & PROCEDURAL SPRITE HELPERS
+  // =========================================================================
+  const PALETTE = {
+    bgTop: '#070612',
+    bgBot: '#130c2e',
+    cyan: '#00f0ff',
+    magenta: '#ff2a85',
+    violet: '#b026ff',
+    gold: '#ffd500',
+    emerald: '#00ff9d',
+    brickDark: '#1b1538',
+    brickMid: '#2c2259',
+    brickLight: '#46378a',
+    springGold: '#ffd500',
+    hazard: '#ff1e56'
+  };
+
+  function drawPixelBlock(x, y, w, h, type = 'normal', active = true) {
+    const rx = Math.round(x);
+    const ry = Math.round(y);
+    const rw = Math.round(w);
+    const rh = Math.round(h);
+
+    if (type === 'door') {
+      if (!active) {
+        ctx.strokeStyle = 'rgba(0, 240, 255, 0.35)';
+        ctx.lineWidth = 2;
+        ctx.setLineDash([6, 6]);
+        ctx.strokeRect(rx + 2, ry + 2, rw - 4, rh - 4);
+        ctx.setLineDash([]);
+        return;
+      }
+      ctx.fillStyle = '#240b24';
+      ctx.fillRect(rx, ry, rw, rh);
+      ctx.strokeStyle = PALETTE.magenta;
+      ctx.lineWidth = 3;
+      ctx.strokeRect(rx + 1.5, ry + 1.5, rw - 3, rh - 3);
+      ctx.fillStyle = PALETTE.magenta;
+      for (let by = ry + 8; by < ry + rh - 6; by += 12) {
+        ctx.fillRect(rx + 6, by, rw - 12, 4);
+      }
+      return;
+    }
+
+    if (type === 'bridge') {
+      if (!active) {
+        ctx.strokeStyle = 'rgba(176, 38, 255, 0.4)';
+        ctx.lineWidth = 2;
+        ctx.setLineDash([4, 4]);
+        ctx.strokeRect(rx + 1, ry + 1, rw - 2, rh - 2);
+        ctx.setLineDash([]);
+        return;
+      }
+      ctx.fillStyle = '#1b0f3b';
+      ctx.fillRect(rx, ry, rw, rh);
+      ctx.fillStyle = PALETTE.violet;
+      ctx.fillRect(rx, ry, rw, 5);
+      ctx.strokeStyle = PALETTE.cyan;
+      ctx.lineWidth = 2;
+      ctx.strokeRect(rx + 1, ry + 1, rw - 2, rh - 2);
+      return;
+    }
+
+    ctx.fillStyle = PALETTE.brickDark;
+    ctx.fillRect(rx, ry, rw, rh);
+
+    const tile = 32;
+    for (let tx = rx; tx < rx + rw; tx += tile) {
+      for (let ty = ry; ty < ry + rh; ty += tile) {
+        const tw = Math.min(tile, rx + rw - tx);
+        const th = Math.min(tile, ry + rh - ty);
+
+        ctx.fillStyle = type === 'bouncy' ? '#3b1238' : PALETTE.brickMid;
+        ctx.fillRect(tx + 2, ty + 2, tw - 4, th - 4);
+
+        ctx.fillStyle = type === 'bouncy' ? PALETTE.magenta : PALETTE.brickLight;
+        ctx.fillRect(tx + 2, ty + 2, tw - 4, 3);
+        ctx.fillRect(tx + 2, ty + 2, 3, th - 4);
+
+        ctx.fillStyle = '#130e29';
+        ctx.fillRect(tx + 6, ty + 6, 3, 3);
+        if (tw > 20 && th > 20) {
+          ctx.fillRect(tx + tw - 9, ty + th - 9, 3, 3);
+        }
+      }
+    }
+
+    ctx.fillStyle = type === 'bouncy' ? PALETTE.magenta : (type === 'moving' ? PALETTE.gold : PALETTE.cyan);
+    ctx.fillRect(rx, ry, rw, 5);
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(rx + 2, ry + 1, rw - 4, 2);
+
+    ctx.strokeStyle = '#090717';
+    ctx.lineWidth = 2;
+    ctx.strokeRect(rx, ry, rw, rh);
+  }
+
+  function drawSpringBlock(s) {
+    const rx = Math.round(s.x);
+    const ry = Math.round(s.y + (s.compress || 0));
+    const rw = Math.round(s.w);
+    const rh = Math.round(Math.max(8, s.h - (s.compress || 0)));
+
+    ctx.fillStyle = '#3d1500';
+    ctx.fillRect(rx, ry, rw, rh);
+
+    ctx.fillStyle = PALETTE.springGold;
+    ctx.fillRect(rx + 2, ry + 2, rw - 4, rh - 4);
+
+    ctx.fillStyle = '#fff099';
+    ctx.fillRect(rx + 4, ry + 4, rw - 8, 4);
+
+    ctx.fillStyle = '#b81d48';
+    const cx = rx + Math.floor(rw / 2);
+    const cy = ry + Math.floor(rh / 2);
+    ctx.fillRect(cx - 2, cy - 5, 4, 10);
+    ctx.fillRect(cx - 6, cy - 2, 12, 3);
+    ctx.fillRect(cx - 9, cy + 1, 4, 3);
+    ctx.fillRect(cx + 5, cy + 1, 4, 3);
+
+    ctx.strokeStyle = '#ffffff';
+    ctx.lineWidth = 2;
+    ctx.strokeRect(rx, ry, rw, rh);
+  }
+
+  function drawOrbCharacter(x, y, radius, scaleX, scaleY, colorMain, colorAccent, alpha = 1, label = '', chargeRatio = 0, facing = 1) {
+    ctx.save();
+    ctx.globalAlpha = alpha;
+    ctx.translate(Math.round(x), Math.round(y));
+    ctx.scale(scaleX, scaleY);
+
+    const grad = ctx.createRadialGradient(0, 0, radius * 0.3, 0, 0, radius * 2.1);
+    grad.addColorStop(0, colorMain);
+    grad.addColorStop(1, 'rgba(0,0,0,0)');
+    ctx.fillStyle = grad;
+    ctx.beginPath();
+    ctx.arc(0, 0, radius * 2.1, 0, Math.PI * 2);
+    ctx.fill();
+
+    if (chargeRatio > 0.05) {
+      ctx.strokeStyle = PALETTE.gold;
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.arc(0, 0, radius + 6 + Math.sin(performance.now() * 0.03) * 2, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * chargeRatio);
+      ctx.stroke();
+    }
+
+    const p = 3;
+    const r = Math.round(radius);
+    ctx.fillStyle = colorMain;
+    ctx.fillRect(-r + p, -r, (r - p) * 2, r * 2);
+    ctx.fillRect(-r, -r + p, r * 2, (r - p) * 2);
+
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(-r + p * 2, -r + p * 2, (r - p * 2) * 2, (r - p * 2) * 2);
+
+    // Pixel Cap / Visor
+    ctx.fillStyle = colorAccent;
+    ctx.fillRect(-r, -r - 2, r * 2, 6);
+    if (facing >= 0) {
+      ctx.fillRect(0, -r - 2, r + 5, 4);
+    } else {
+      ctx.fillRect(-r - 5, -r - 2, r + 5, 4);
+    }
+
+    // Pixel Eyes
+    ctx.fillStyle = '#09061a';
+    const eyeOffsetX = facing >= 0 ? 3 : -7;
+    ctx.fillRect(eyeOffsetX, -2, 3, 6);
+    ctx.fillRect(eyeOffsetX + 6, -2, 3, 6);
+
+    ctx.restore();
+
+    if (label) {
+      ctx.save();
+      ctx.globalAlpha = Math.min(1, alpha + 0.25);
+      ctx.font = 'bold 10px ' + PIXEL_FONT;
+      ctx.fillStyle = colorMain;
+      ctx.textAlign = 'center';
+      ctx.fillText(label, Math.round(x), Math.round(y - radius - 14));
+      ctx.restore();
+    }
+  }
+
+  // =========================================================================
+  // 3. HANDCRAFTED LEVEL DEFINITIONS (5 PROGRESSIVE LEVELS)
+  // =========================================================================
+  const LEVELS = [
+    {
+      id: 1,
+      name: 'THE FIRST FALL',
+      hint: 'BOUNCE IN THE PIT & PRESS [R] TO TURN YOURSELF INTO A SPRINGBOARD FOR THE HIGH LEDGE!',
+      spawn: { x: 130, y: 480 },
+      exit: { x: 1120, y: 210, w: 48, h: 64 },
+      platforms: [
+        { x: 40, y: 560, w: 320, h: 120, type: 'normal' },
+        { x: 360, y: 630, w: 380, h: 90, type: 'normal' },
+        { x: 740, y: 390, w: 220, h: 330, type: 'normal' },
+        { x: 960, y: 274, w: 280, h: 446, type: 'normal' },
+        { x: 0, y: 0, w: 1280, h: 24, type: 'normal' },
+        { x: 0, y: 0, w: 24, h: 720, type: 'normal' },
+        { x: 1256, y: 0, w: 24, h: 720, type: 'normal' }
+      ],
+      springs: [{ x: 860, y: 366, w: 48, h: 24, power: -780 }],
+      switches: [],
+      doors: [],
+      movingPlatforms: [],
+      rotors: [],
+      hazards: [],
+      checkpoints: [{ x: 810, y: 342, id: 'cp1' }],
+      shards: [
+        { x: 240, y: 440, id: 0 },
+        { x: 550, y: 470, id: 1 },
+        { x: 1030, y: 180, id: 2 }
+      ]
+    },
+    {
+      id: 2,
+      name: 'TWO STEPS FORWARD',
+      hint: 'STAND ON THE CYAN SWITCH, THEN PRESS [R]. YOUR ECHO WILL HOLD THE GATE OPEN FOR YOU!',
+      spawn: { x: 110, y: 500 },
+      exit: { x: 1140, y: 496, w: 48, h: 64 },
+      platforms: [
+        { x: 24, y: 560, w: 540, h: 160, type: 'normal' },
+        { x: 260, y: 350, w: 220, h: 32, type: 'normal' },
+        { x: 640, y: 24, w: 48, h: 376, type: 'normal' },
+        { x: 564, y: 560, w: 692, h: 160, type: 'normal' },
+        { x: 830, y: 380, w: 180, h: 28, type: 'normal' },
+        { x: 0, y: 0, w: 1280, h: 24, type: 'normal' },
+        { x: 0, y: 0, w: 24, h: 720, type: 'normal' },
+        { x: 1256, y: 0, w: 24, h: 720, type: 'normal' }
+      ],
+      springs: [{ x: 170, y: 536, w: 48, h: 24, power: -760 }],
+      switches: [{ id: 'sw1', x: 340, y: 336, w: 64, h: 14, color: '#00f0ff', targetId: 'door1' }],
+      doors: [{ id: 'door1', x: 648, y: 400, w: 32, h: 160, type: 'door', inverted: false }],
+      movingPlatforms: [],
+      rotors: [],
+      hazards: [{ x: 740, y: 544, w: 72, h: 16 }],
+      checkpoints: [{ x: 710, y: 512, id: 'cp2' }],
+      shards: [
+        { x: 372, y: 260, id: 0 },
+        { x: 920, y: 310, id: 1 },
+        { x: 1060, y: 480, id: 2 }
+      ]
+    },
+    {
+      id: 3,
+      name: 'THE LOOP',
+      hint: 'RIDE THE MOVING FERRY TO TRIGGER THE UPPER SWITCH. YOUR ECHO WILL MATERIALIZE THE BRIDGE!',
+      spawn: { x: 100, y: 500 },
+      exit: { x: 1150, y: 216, w: 48, h: 64 },
+      platforms: [
+        { x: 24, y: 560, w: 240, h: 160, type: 'normal' },
+        { x: 520, y: 240, w: 200, h: 32, type: 'normal' },
+        { x: 540, y: 520, w: 180, h: 200, type: 'normal' },
+        { x: 1040, y: 280, w: 216, h: 440, type: 'normal' },
+        { x: 0, y: 0, w: 1280, h: 24, type: 'normal' },
+        { x: 0, y: 0, w: 24, h: 720, type: 'normal' },
+        { x: 1256, y: 0, w: 24, h: 720, type: 'normal' }
+      ],
+      springs: [{ x: 606, y: 496, w: 48, h: 24, power: -840 }],
+      switches: [{ id: 'sw_bridge', x: 588, y: 226, w: 64, h: 14, color: '#b026ff', targetId: 'bridge1' }],
+      doors: [{ id: 'bridge1', x: 760, y: 360, w: 240, h: 24, type: 'bridge', inverted: false }],
+      movingPlatforms: [{ x: 290, y: 540, w: 130, h: 22, startX: 290, endX: 400, startY: 540, endY: 360, speed: 1.5 }],
+      rotors: [{ x: 880, y: 220, length: 95, speed: 2.1, angle: 0 }],
+      hazards: [{ x: 264, y: 704, w: 776, h: 16 }],
+      checkpoints: [{ x: 615, y: 472, id: 'cp3' }],
+      shards: [
+        { x: 390, y: 280, id: 0 },
+        { x: 620, y: 150, id: 1 },
+        { x: 880, y: 310, id: 2 }
+      ]
+    },
+    {
+      id: 4,
+      name: 'FRACTURE',
+      hint: 'TWO LOCKS SEAL THE ASCENSION SHAFT. DEPLOY TWO ECHOES ON SEPARATE SWITCHES!',
+      spawn: { x: 110, y: 600 },
+      exit: { x: 1140, y: 126, w: 48, h: 64 },
+      platforms: [
+        { x: 24, y: 656, w: 1232, h: 64, type: 'normal' },
+        { x: 120, y: 430, w: 180, h: 28, type: 'normal' },
+        { x: 470, y: 470, w: 240, h: 28, type: 'normal' },
+        { x: 960, y: 450, w: 200, h: 28, type: 'normal' },
+        { x: 440, y: 260, w: 320, h: 28, type: 'normal' },
+        { x: 1020, y: 190, w: 236, h: 28, type: 'normal' },
+        { x: 0, y: 0, w: 1280, h: 24, type: 'normal' },
+        { x: 0, y: 0, w: 24, h: 720, type: 'normal' },
+        { x: 1256, y: 0, w: 24, h: 720, type: 'normal' }
+      ],
+      springs: [
+        { x: 340, y: 632, w: 48, h: 24, power: -780 },
+        { x: 820, y: 632, w: 48, h: 24, power: -780 },
+        { x: 576, y: 446, w: 48, h: 24, power: -760 }
+      ],
+      switches: [
+        { id: 'sw_a', x: 178, y: 416, w: 64, h: 14, color: '#00f0ff', targetId: 'door_a' },
+        { id: 'sw_b', x: 1028, y: 436, w: 64, h: 14, color: '#ff2a85', targetId: 'bridge_b' }
+      ],
+      doors: [
+        { id: 'door_a', x: 728, y: 24, w: 32, h: 236, type: 'door', inverted: false },
+        { id: 'bridge_b', x: 800, y: 225, w: 180, h: 22, type: 'bridge', inverted: false }
+      ],
+      movingPlatforms: [],
+      rotors: [{ x: 590, y: 155, length: 75, speed: -2.4, angle: 1.0 }],
+      hazards: [{ x: 520, y: 640, w: 160, h: 16 }],
+      checkpoints: [{ x: 510, y: 212, id: 'cp4' }],
+      shards: [
+        { x: 210, y: 340, id: 0 },
+        { x: 1060, y: 360, id: 1 },
+        { x: 590, y: 75, id: 2 }
+      ]
+    },
+    {
+      id: 5,
+      name: 'THE LAST REBOUND',
+      hint: 'THREE ECHOES. THREE LOCKS. WEAVE ALL PAST ATTEMPTS TOGETHER TO REBUILD THE FINAL BRIDGE!',
+      spawn: { x: 90, y: 540 },
+      exit: { x: 1170, y: 156, w: 48, h: 64 },
+      platforms: [
+        { x: 24, y: 600, w: 210, h: 120, type: 'normal' },
+        { x: 310, y: 560, w: 150, h: 28, type: 'normal' },
+        { x: 560, y: 430, w: 150, h: 28, type: 'normal' },
+        { x: 320, y: 260, w: 150, h: 28, type: 'normal' },
+        { x: 1100, y: 220, w: 156, h: 500, type: 'normal' },
+        { x: 0, y: 0, w: 1280, h: 24, type: 'normal' },
+        { x: 0, y: 0, w: 24, h: 720, type: 'normal' },
+        { x: 1256, y: 0, w: 24, h: 720, type: 'normal' }
+      ],
+      springs: [
+        { x: 165, y: 576, w: 44, h: 24, power: -760 },
+        { x: 612, y: 406, w: 44, h: 24, power: -790 }
+      ],
+      switches: [
+        { id: 'f_sw1', x: 353, y: 546, w: 64, h: 14, color: '#00f0ff', targetId: 'f_br1' },
+        { id: 'f_sw2', x: 603, y: 416, w: 64, h: 14, color: '#ff2a85', targetId: 'f_br2' },
+        { id: 'f_sw3', x: 363, y: 246, w: 64, h: 14, color: '#ffd500', targetId: 'f_br3' }
+      ],
+      doors: [
+        { id: 'f_br1', x: 520, y: 240, w: 165, h: 22, type: 'bridge', inverted: false },
+        { id: 'f_br2', x: 710, y: 230, w: 165, h: 22, type: 'bridge', inverted: false },
+        { id: 'f_br3', x: 900, y: 220, w: 175, h: 22, type: 'bridge', inverted: false }
+      ],
+      movingPlatforms: [{ x: 465, y: 520, w: 85, h: 20, startX: 465, endX: 465, startY: 540, endY: 430, speed: 1.7 }],
+      rotors: [{ x: 795, y: 155, length: 72, speed: 2.3, angle: 0.4 }],
+      hazards: [{ x: 234, y: 704, w: 866, h: 16 }],
+      checkpoints: [{ x: 380, y: 212, id: 'cp5' }],
+      shards: [
+        { x: 385, y: 480, id: 0 },
+        { x: 635, y: 330, id: 1 },
+        { x: 985, y: 140, id: 2 }
+      ]
+    }
+  ];
+
+  // =========================================================================
+  // 4. STATE, PHYSICS, ECHOES & RENDERING
+  // =========================================================================
+  const MAX_ECHOES = 3;
+  const FIXED_DT = 1 / 60;
+
+  const state = {
+    mode: 'TITLE',
+    levelIndex: 0,
+    unlockedLevel: 0,
+    completedLevels: {},
+    totalEchoesCreated: 0,
+    levelTimer: 0,
+    runFrame: 0,
+    echoes: [],
+    currentRecording: [],
+    activeCheckpoint: null,
+    collectedShards: {},
+    particles: [],
+    floatingTexts: [],
+    trail: [],
+    shake: 0,
+    flashAlpha: 0,
+    flashColor: '#ffffff',
+    combo: 0,
+    bgStars: [],
+    bgRuins: []
+  };
+
+  const player = {
+    x: 120, y: 480, vx: 0, vy: 0, radius: 15,
+    scaleX: 1, scaleY: 1, facing: 1,
+    charge: 0, isCharging: false, slamming: false,
+    echoBounceCooldown: 0
+  };
+
+  const keys = { left: false, right: false, space: false, spaceJustPressed: false };
+
+  function initBackground() {
+    state.bgStars = Array.from({ length: 95 }, () => ({
+      x: Math.random() * W,
+      y: Math.random() * H,
+      size: Math.random() < 0.7 ? 2 : 4,
+      color: Math.random() < 0.5 ? '#00f0ff' : (Math.random() < 0.5 ? '#b026ff' : '#ffffff'),
+      twinkle: Math.random() * Math.PI * 2
+    }));
+
+    state.bgRuins = Array.from({ length: 14 }, (_, i) => ({
+      x: i * 110 + Math.random() * 40,
+      y: 120 + Math.random() * 420,
+      w: 48 + Math.floor(Math.random() * 4) * 16,
+      h: 80 + Math.floor(Math.random() * 6) * 24,
+      layer: i % 2 === 0 ? 0.25 : 0.5,
+      bobOffset: Math.random() * Math.PI * 2
+    }));
+  }
+
+  function getCurrentLevel() {
+    return LEVELS[state.levelIndex] || LEVELS[0];
+  }
+
+  function respawnPlayer() {
+    const lvl = getCurrentLevel();
+    const spawnPos = state.activeCheckpoint || lvl.spawn;
+    player.x = spawnPos.x;
+    player.y = spawnPos.y;
+    player.vx = 0;
+    player.vy = 0;
+    player.scaleX = 1;
+    player.scaleY = 1;
+    player.charge = 0;
+    player.isCharging = false;
+    player.slamming = false;
+    player.echoBounceCooldown = 0;
+
+    state.runFrame = 0;
+    state.currentRecording = [];
+    state.trail = [];
+    state.combo = 0;
+
+    lvl.movingPlatforms.forEach(mp => {
+      mp.x = mp.startX;
+      mp.y = mp.startY;
+      mp.t = 0;
+    });
+    lvl.rotors.forEach(r => {
+      r.currentAngle = r.angle;
+    });
+  }
+
+  function loadLevel(idx, keepEchoes = false) {
+    state.levelIndex = Math.max(0, Math.min(LEVELS.length - 1, idx));
+    const lvl = getCurrentLevel();
+    if (!keepEchoes) {
+      state.echoes = [];
+      state.activeCheckpoint = null;
+      if (!state.collectedShards[state.levelIndex]) {
+        state.collectedShards[state.levelIndex] = new Set();
+      }
+    }
+    lvl.springs.forEach(s => { s.compress = 0; });
+    lvl.switches.forEach(sw => { sw.pressed = false; sw.pressDepth = 0; });
+    lvl.doors.forEach(d => { d.open = !!d.inverted; });
+    respawnPlayer();
+  }
+
+  function spawnParticles(x, y, color, count = 12, speed = 180) {
+    for (let i = 0; i < count; i++) {
+      const ang = Math.random() * Math.PI * 2;
+      const spd = 30 + Math.random() * speed;
+      state.particles.push({
+        x, y,
+        vx: Math.cos(ang) * spd,
+        vy: Math.sin(ang) * spd - 40,
+        size: Math.random() < 0.5 ? 4 : 6,
+        color,
+        life: 0.35 + Math.random() * 0.35,
+        maxLife: 0.7
+      });
+    }
+  }
+
+  function addFloatingText(x, y, text, color = '#00f0ff') {
+    state.floatingTexts.push({ x, y, text, color, life: 1.1 });
+  }
+
+  function addShake(amount) {
+    state.shake = Math.min(22, Math.max(state.shake, amount));
+  }
+
+  function triggerFlash(color, alpha = 0.25) {
+    state.flashColor = color;
+    state.flashAlpha = alpha;
+  }
+
+  function commitRunAsEcho(reason = 'ECHO SAVED') {
+    if (state.currentRecording.length > 10) {
+      const pals = [
+        { main: '#00f0ff', accent: '#0077ff' },
+        { main: '#ff2a85', accent: '#99004d' },
+        { main: '#ffd500', accent: '#ff7700' }
+      ];
+      const pal = pals[state.totalEchoesCreated % pals.length];
+      state.echoes.push({
+        id: state.totalEchoesCreated + 1,
+        frames: state.currentRecording.slice(),
+        color: pal.main,
+        accent: pal.accent
+      });
+      if (state.echoes.length > MAX_ECHOES) state.echoes.shift();
+      state.totalEchoesCreated++;
+      sfx.echoSpawn();
+      triggerFlash(pal.main, 0.26);
+      addShake(8);
+      spawnParticles(player.x, player.y, pal.main, 24, 250);
+      addFloatingText(player.x, player.y - 24, reason, pal.main);
+    }
+    respawnPlayer();
+  }
+
+  function purgeEchoes() {
+    state.echoes = [];
+    state.activeCheckpoint = null;
+    sfx.switchOff();
+    addFloatingText(player.x, player.y - 30, 'ECHOES PURGED', '#ff2a85');
+    respawnPlayer();
+  }
+
+  function circleRectCollision(cx, cy, r, rx, ry, rw, rh) {
+    const closestX = Math.max(rx, Math.min(cx, rx + rw));
+    const closestY = Math.max(ry, Math.min(cy, ry + rh));
+    const dx = cx - closestX;
+    const dy = cy - closestY;
+    const distSq = dx * dx + dy * dy;
+    if (distSq < r * r) {
+      const dist = Math.sqrt(distSq) || 0.001;
+      return { nx: dx / dist, ny: dy / dist, penetration: r - dist };
+    }
+    return null;
+  }
+
+  function lineCircleCollision(x1, y1, x2, y2, cx, cy, r) {
+    const dx = x2 - x1;
+    const dy = y2 - y1;
+    const lenSq = dx * dx + dy * dy;
+    let t = ((cx - x1) * dx + (cy - y1) * dy) / (lenSq || 1);
+    t = Math.max(0, Math.min(1, t));
+    const px = x1 + t * dx;
+    const py = y1 + t * dy;
+    const distSq = (cx - px) * (cx - px) + (cy - py) * (cy - py);
+    return distSq <= r * r;
+  }
+
+  function getActiveEchoStates(frameIdx) {
+    return state.echoes.map((echo, idx) => {
+      const len = echo.frames.length;
+      if (!len) return null;
+      const holdFrames = 45;
+      const cycleLen = len + holdFrames;
+      const mod = frameIdx % cycleLen;
+      const f = mod < len ? echo.frames[mod] : echo.frames[len - 1];
+      return { ...f, color: echo.color, accent: echo.accent, label: `ECHO 0${idx + 1}` };
+    }).filter(Boolean);
+  }
+
+  function updatePhysics(dt) {
+    const lvl = getCurrentLevel();
+    state.levelTimer += dt;
+    state.runFrame++;
+    if (player.echoBounceCooldown > 0) player.echoBounceCooldown -= dt;
+
+    lvl.movingPlatforms.forEach(mp => {
+      mp.t = (mp.t || 0) + dt * mp.speed;
+      const factor = (Math.sin(mp.t - Math.PI / 2) + 1) * 0.5;
+      const nextX = mp.startX + (mp.endX - mp.startX) * factor;
+      const nextY = mp.startY + (mp.endY - mp.startY) * factor;
+      mp.vx = (nextX - mp.x) / dt;
+      mp.vy = (nextY - mp.y) / dt;
+      mp.x = nextX;
+      mp.y = nextY;
+    });
+
+    lvl.rotors.forEach(rot => {
+      rot.currentAngle = (rot.currentAngle ?? rot.angle) + rot.speed * dt;
+    });
+
+    lvl.springs.forEach(s => {
+      if (s.compress > 0) s.compress = Math.max(0, s.compress - 45 * dt);
+    });
+
+    const accel = 1850;
+    const maxSpeed = 370;
+    const friction = 0.89;
+
+    if (keys.left) {
+      player.vx -= accel * dt;
+      player.facing = -1;
+    } else if (keys.right) {
+      player.vx += accel * dt;
+      player.facing = 1;
+    } else {
+      player.vx *= Math.pow(friction, dt * 60);
+      if (Math.abs(player.vx) < 4) player.vx = 0;
+    }
+    player.vx = Math.max(-maxSpeed, Math.min(maxSpeed, player.vx));
+
+    if (keys.space) {
+      player.isCharging = true;
+      player.charge = Math.min(1, player.charge + dt * 1.65);
+      if (keys.spaceJustPressed && player.vy < 250 && !player.slamming) {
+        player.vy = Math.max(player.vy + 340, 420);
+        player.slamming = true;
+        player.scaleX = 0.72;
+        player.scaleY = 1.32;
+        sfx.slam();
+      }
+    } else {
+      player.isCharging = false;
+    }
+    keys.spaceJustPressed = false;
+
+    player.vy = Math.min(920, player.vy + 1280 * dt);
+    player.x += player.vx * dt;
+    player.y += player.vy * dt;
+
+    player.scaleX += (1 - player.scaleX) * 14 * dt;
+    player.scaleY += (1 - player.scaleY) * 14 * dt;
+
+    const solids = [
+      ...lvl.platforms,
+      ...lvl.movingPlatforms.map(mp => ({ ...mp, type: 'moving' })),
+      ...lvl.doors.filter(d => !d.open)
+    ];
+
+    const baseBounceVel = -545;
+    solids.forEach(box => {
+      const hit = circleRectCollision(player.x, player.y, player.radius, box.x, box.y, box.w, box.h);
+      if (!hit) return;
+      player.x += hit.nx * hit.penetration;
+      player.y += hit.ny * hit.penetration;
+
+      if (hit.ny < -0.65 && player.vy >= 0) {
+        const charged = player.charge > 0.35 || player.slamming;
+        const mult = charged ? (1 + player.charge * 0.42 + (player.slamming ? 0.15 : 0)) : 1;
+        player.vy = baseBounceVel * mult;
+        if (box.vx) player.vx += box.vx * 0.25;
+        player.scaleX = charged ? 1.48 : 1.32;
+        player.scaleY = charged ? 0.56 : 0.72;
+        state.combo++;
+        sfx.bounce(state.combo, charged);
+        spawnParticles(player.x, player.y + player.radius, charged ? PALETTE.gold : PALETTE.cyan, charged ? 18 : 8, charged ? 240 : 130);
+        if (charged) {
+          addShake(7);
+          triggerFlash(PALETTE.gold, 0.14);
+        }
+        player.charge = 0;
+        player.slamming = false;
+      } else if (hit.ny > 0.65 && player.vy < 0) {
+        player.vy = Math.abs(player.vy) * 0.45;
+        player.scaleX = 1.25;
+        player.scaleY = 0.75;
+      } else if (Math.abs(hit.nx) > 0.65) {
+        player.vx = hit.nx * Math.max(Math.abs(player.vx) * 0.78, 190);
+        player.scaleX = 0.74;
+        player.scaleY = 1.26;
+        sfx.playTone(190, 260, 0.07, 'triangle', 0.08);
+      }
+    });
+
+    lvl.springs.forEach(s => {
+      const hit = circleRectCollision(player.x, player.y, player.radius, s.x, s.y, s.w, s.h);
+      if (hit && hit.ny < -0.5) {
+        player.x += hit.nx * hit.penetration;
+        player.y += hit.ny * hit.penetration;
+        player.vy = s.power;
+        s.compress = 10;
+        player.scaleX = 0.65;
+        player.scaleY = 1.45;
+        player.charge = 0;
+        player.slamming = false;
+        state.combo++;
+        sfx.superSpring();
+        addShake(9);
+        triggerFlash(PALETTE.gold, 0.18);
+        spawnParticles(s.x + s.w / 2, s.y, PALETTE.gold, 20, 260);
+      }
+    });
+
+    const activeEchoStates = getActiveEchoStates(state.runFrame);
+
+    activeEchoStates.forEach(es => {
+      const dx = player.x - es.x;
+      const dy = player.y - es.y;
+      const minDist = player.radius + 16;
+      const distSq = dx * dx + dy * dy;
+      if (distSq < minDist * minDist && player.echoBounceCooldown <= 0) {
+        const dist = Math.sqrt(distSq) || 1;
+        const nx = dx / dist;
+        const ny = dy / dist;
+        player.x = es.x + nx * (minDist + 2);
+        player.y = es.y + ny * (minDist + 2);
+        if (ny < 0.35) {
+          player.vy = -740;
+          player.vx += nx * 160;
+          player.scaleX = 0.68;
+          player.scaleY = 1.42;
+          player.echoBounceCooldown = 0.18;
+          state.combo += 2;
+          sfx.echoBounce();
+          addShake(8);
+          triggerFlash(es.color, 0.2);
+          spawnParticles(es.x, es.y, es.color, 22, 240);
+          addFloatingText(es.x, es.y - 24, 'ECHO BOOST!', es.color);
+        } else {
+          player.vx = nx * 360;
+          player.echoBounceCooldown = 0.15;
+        }
+      }
+    });
+
+    lvl.switches.forEach(sw => {
+      let isPressed = !!circleRectCollision(player.x, player.y, player.radius + 2, sw.x - 4, sw.y - 10, sw.w + 8, sw.h + 14);
+      if (!isPressed) {
+        for (const es of activeEchoStates) {
+          if (circleRectCollision(es.x, es.y, 17, sw.x - 4, sw.y - 10, sw.w + 8, sw.h + 14)) {
+            isPressed = true;
+            break;
+          }
+        }
+      }
+      if (isPressed && !sw.pressed) {
+        sfx.switchOn();
+        spawnParticles(sw.x + sw.w / 2, sw.y, sw.color, 12, 140);
+      } else if (!isPressed && sw.pressed) {
+        sfx.switchOff();
+      }
+      sw.pressed = isPressed;
+      sw.pressDepth += ((isPressed ? 8 : 0) - sw.pressDepth) * 18 * dt;
+      const targetDoor = lvl.doors.find(d => d.id === sw.targetId);
+      if (targetDoor) {
+        targetDoor.open = targetDoor.inverted ? !isPressed : isPressed;
+      }
+    });
+
+    lvl.shards.forEach(sh => {
+      const set = state.collectedShards[state.levelIndex];
+      if (set && !set.has(sh.id)) {
+        const dx = player.x - sh.x;
+        const dy = player.y - sh.y;
+        if (dx * dx + dy * dy < (player.radius + 16) * (player.radius + 16)) {
+          set.add(sh.id);
+          sfx.shard();
+          triggerFlash(PALETTE.emerald, 0.16);
+          spawnParticles(sh.x, sh.y, PALETTE.emerald, 20, 200);
+          addFloatingText(sh.x, sh.y - 18, '+SHARD', PALETTE.emerald);
+        }
+      }
+    });
+
+    lvl.checkpoints.forEach(cp => {
+      const dx = player.x - cp.x;
+      const dy = player.y - cp.y;
+      if (dx * dx + dy * dy < 36 * 36) {
+        if (!state.activeCheckpoint || state.activeCheckpoint.id !== cp.id) {
+          state.activeCheckpoint = { x: cp.x, y: cp.y - 12, id: cp.id };
+          sfx.checkpoint();
+          spawnParticles(cp.x, cp.y, PALETTE.emerald, 22, 180);
+          addFloatingText(cp.x, cp.y - 34, 'CHECKPOINT', PALETTE.emerald);
+        }
+      }
+    });
+
+    let hitHazard = player.y > H + 30;
+    if (!hitHazard) {
+      for (const hz of lvl.hazards) {
+        if (circleRectCollision(player.x, player.y, player.radius - 2, hz.x, hz.y, hz.w, hz.h)) {
+          hitHazard = true;
+          break;
+        }
+      }
+    }
+    if (!hitHazard) {
+      for (const rot of lvl.rotors) {
+        const ang = rot.currentAngle ?? rot.angle;
+        const x1 = rot.x - Math.cos(ang) * rot.length;
+        const y1 = rot.y - Math.sin(ang) * rot.length;
+        const x2 = rot.x + Math.cos(ang) * rot.length;
+        const y2 = rot.y + Math.sin(ang) * rot.length;
+        if (lineCircleCollision(x1, y1, x2, y2, player.x, player.y, player.radius + 4)) {
+          hitHazard = true;
+          break;
+        }
+      }
+    }
+
+    if (hitHazard) {
+      sfx.hazardHit();
+      commitRunAsEcho('FAILURE -> ECHO');
+      return;
+    }
+
+    if (state.currentRecording.length < 3600) {
+      state.currentRecording.push({
+        x: player.x,
+        y: player.y,
+        scaleX: player.scaleX,
+        scaleY: player.scaleY,
+        facing: player.facing
+      });
+    }
+
+    if (state.runFrame % 2 === 0) {
+      state.trail.push({ x: player.x, y: player.y });
+      if (state.trail.length > 14) state.trail.shift();
+    }
+
+    if (circleRectCollision(player.x, player.y, player.radius, lvl.exit.x, lvl.exit.y, lvl.exit.w, lvl.exit.h)) {
+      completeLevel();
+    }
+  }
+
+  function completeLevel() {
+    sfx.win();
+    triggerFlash(PALETTE.emerald, 0.35);
+    spawnParticles(player.x, player.y, PALETTE.emerald, 40, 320);
+    state.completedLevels[state.levelIndex] = true;
+    state.unlockedLevel = Math.max(state.unlockedLevel, Math.min(LEVELS.length - 1, state.levelIndex + 1));
+
+    if (state.levelIndex === LEVELS.length - 1) {
+      state.mode = 'ENDING';
+      showEndingScreen();
+    } else {
+      state.mode = 'COMPLETE';
+      showCompleteScreen();
+    }
+  }
+
+  function renderHUD(lvl) {
+    ctx.fillStyle = 'rgba(10, 8, 26, 0.82)';
+    ctx.fillRect(14, 12, 620, 44);
+    ctx.strokeStyle = '#3c2f7a';
+    ctx.lineWidth = 2;
+    ctx.strokeRect(14, 12, 620, 44);
+
+    ctx.font = 'bold 11px ' + PIXEL_FONT;
+    ctx.textAlign = 'left';
+
+    ctx.fillStyle = '#00f0ff';
+    ctx.fillText(`0${lvl.id}: ${lvl.name}`, 26, 30);
+
+    ctx.fillStyle = '#ffffff';
+    ctx.fillText(`TIME ${state.levelTimer.toFixed(1)}s`, 26, 48);
+
+    ctx.fillStyle = '#ff2a85';
+    ctx.fillText('ECHOES:', 220, 30);
+    for (let i = 0; i < MAX_ECHOES; i++) {
+      const active = i < state.echoes.length;
+      ctx.fillStyle = active ? state.echoes[i].color : '#251e4a';
+      ctx.fillRect(295 + i * 22, 20, 16, 12);
+      ctx.strokeStyle = '#ffffff';
+      ctx.lineWidth = 1;
+      ctx.strokeRect(295 + i * 22, 20, 16, 12);
+    }
+
+    if (Math.floor(performance.now() / 350) % 2 === 0) {
+      ctx.fillStyle = '#ff1e56';
+      ctx.fillRect(220, 40, 8, 8);
+    }
+    ctx.fillStyle = '#9ba3d4';
+    ctx.fillText('REC ACTIVE', 234, 48);
+
+    const shardCount = state.collectedShards[state.levelIndex]?.size || 0;
+    ctx.fillStyle = PALETTE.emerald;
+    ctx.fillText(`SHARDS ${shardCount}/3`, 430, 30);
+
+    if (state.combo > 1) {
+      ctx.fillStyle = PALETTE.gold;
+      ctx.fillText(`BOUNCE x${state.combo}`, 430, 48);
+    }
+
+    ctx.fillStyle = 'rgba(10, 8, 26, 0.84)';
+    ctx.fillRect(14, H - 36, W - 28, 26);
+    ctx.font = 'bold 11px ' + PIXEL_FONT;
+    ctx.fillStyle = '#b8c1ec';
+    ctx.textAlign = 'center';
+    ctx.fillText(lvl.hint, W / 2, H - 19);
+  }
+
+  function render() {
+    const time = performance.now() * 0.001;
+    ctx.save();
+
+    if (state.shake > 0.2) {
+      ctx.translate(Math.round((Math.random() - 0.5) * state.shake * 2), Math.round((Math.random() - 0.5) * state.shake * 2));
+      state.shake *= 0.86;
+    } else {
+      state.shake = 0;
+    }
+
+    const bgGrad = ctx.createLinearGradient(0, 0, 0, H);
+    bgGrad.addColorStop(0, PALETTE.bgTop);
+    bgGrad.addColorStop(1, PALETTE.bgBot);
+    ctx.fillStyle = bgGrad;
+    ctx.fillRect(0, 0, W, H);
+
+    ctx.strokeStyle = 'rgba(0, 240, 255, 0.06)';
+    ctx.lineWidth = 1;
+    for (let gx = 0; gx < W; gx += 48) {
+      ctx.beginPath(); ctx.moveTo(gx, 0); ctx.lineTo(gx, H); ctx.stroke();
+    }
+    for (let gy = 0; gy < H; gy += 48) {
+      ctx.beginPath(); ctx.moveTo(0, gy); ctx.lineTo(W, gy); ctx.stroke();
+    }
+
+    state.bgStars.forEach(st => {
+      ctx.fillStyle = st.color;
+      ctx.globalAlpha = 0.35 + 0.55 * Math.abs(Math.sin(time * 2 + st.twinkle));
+      ctx.fillRect(Math.round(st.x), Math.round(st.y), st.size, st.size);
+    });
+    ctx.globalAlpha = 1;
+
+    state.bgRuins.forEach(ruin => {
+      const bobY = Math.sin(time * 1.2 + ruin.bobOffset) * 8;
+      ctx.fillStyle = ruin.layer > 0.3 ? 'rgba(26, 19, 56, 0.65)' : 'rgba(17, 12, 38, 0.5)';
+      ctx.fillRect(Math.round(ruin.x), Math.round(ruin.y + bobY), ruin.w, ruin.h);
+      ctx.strokeStyle = 'rgba(176, 38, 255, 0.16)';
+      ctx.lineWidth = 2;
+      ctx.strokeRect(Math.round(ruin.x), Math.round(ruin.y + bobY), ruin.w, ruin.h);
+    });
+
+    const lvl = getCurrentLevel();
+
+    if (state.echoes.length > 0) {
+      ctx.save();
+      ctx.strokeStyle = 'rgba(0, 240, 255, 0.14)';
+      ctx.lineWidth = 2;
+      state.echoes.forEach(ec => {
+        ctx.beginPath();
+        for (let f = 0; f < ec.frames.length; f += 6) {
+          if (f === 0) ctx.moveTo(ec.frames[f].x, ec.frames[f].y);
+          else ctx.lineTo(ec.frames[f].x, ec.frames[f].y);
+        }
+        ctx.stroke();
+      });
+      ctx.restore();
+    }
+
+    lvl.doors.forEach(d => drawPixelBlock(d.x, d.y, d.w, d.h, d.type, d.type === 'bridge' ? d.open : !d.open));
+
+    lvl.switches.forEach(sw => {
+      const py = sw.y + sw.pressDepth;
+      const ph = Math.max(4, sw.h - sw.pressDepth);
+      ctx.fillStyle = '#181236';
+      ctx.fillRect(sw.x - 4, sw.y + sw.h - 4, sw.w + 8, 6);
+      ctx.fillStyle = sw.pressed ? '#ffffff' : sw.color;
+      ctx.fillRect(sw.x, py, sw.w, ph);
+      ctx.strokeStyle = sw.color;
+      ctx.lineWidth = 2;
+      ctx.strokeRect(sw.x, py, sw.w, ph);
+    });
+
+    lvl.platforms.forEach(p => drawPixelBlock(p.x, p.y, p.w, p.h, p.type));
+    lvl.movingPlatforms.forEach(mp => drawPixelBlock(mp.x, mp.y, mp.w, mp.h, 'moving'));
+    lvl.springs.forEach(s => drawSpringBlock(s));
+
+    lvl.hazards.forEach(hz => {
+      ctx.fillStyle = PALETTE.hazard;
+      for (let sx = hz.x; sx < hz.x + hz.w; sx += 16) {
+        ctx.beginPath();
+        ctx.moveTo(sx, hz.y + hz.h);
+        ctx.lineTo(sx + 8, hz.y);
+        ctx.lineTo(sx + 16, hz.y + hz.h);
+        ctx.closePath();
+        ctx.fill();
+      }
+    });
+
+    lvl.rotors.forEach(rot => {
+      const ang = rot.currentAngle ?? rot.angle;
+      const x1 = rot.x - Math.cos(ang) * rot.length;
+      const y1 = rot.y - Math.sin(ang) * rot.length;
+      const x2 = rot.x + Math.cos(ang) * rot.length;
+      const y2 = rot.y + Math.sin(ang) * rot.length;
+      ctx.strokeStyle = 'rgba(255, 30, 86, 0.35)';
+      ctx.lineWidth = 12;
+      ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x2, y2); ctx.stroke();
+      ctx.strokeStyle = '#ff2a55';
+      ctx.lineWidth = 4;
+      ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x2, y2); ctx.stroke();
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(rot.x - 6, rot.y - 6, 12, 12);
+    });
+
+    lvl.checkpoints.forEach(cp => {
+      const active = state.activeCheckpoint && state.activeCheckpoint.id === cp.id;
+      ctx.fillStyle = '#8b95c9';
+      ctx.fillRect(cp.x - 2, cp.y - 24, 4, 48);
+      ctx.fillStyle = active ? PALETTE.emerald : '#4a3d8f';
+      ctx.fillRect(cp.x + 2, cp.y - 22, 22, 14);
+      if (active) {
+        ctx.fillStyle = '#ffffff';
+        ctx.fillRect(cp.x + 5, cp.y - 19, 6, 6);
+      }
+    });
+
+    lvl.shards.forEach(sh => {
+      if (state.collectedShards[state.levelIndex]?.has(sh.id)) return;
+      const bob = Math.sin(time * 4 + sh.id) * 5;
+      const wScale = Math.abs(Math.cos(time * 3 + sh.id));
+      ctx.save();
+      ctx.translate(Math.round(sh.x), Math.round(sh.y + bob));
+      ctx.fillStyle = PALETTE.emerald;
+      const rw = Math.max(4, Math.round(12 * wScale));
+      ctx.fillRect(-rw, -12, rw * 2, 24);
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(-Math.max(2, rw - 4), -8, Math.max(4, (rw - 4) * 2), 10);
+      ctx.restore();
+    });
+
+    const ex = lvl.exit;
+    const pulse = Math.sin(time * 5) * 4;
+    ctx.fillStyle = 'rgba(0, 255, 157, 0.16)';
+    ctx.fillRect(ex.x - pulse, ex.y - pulse, ex.w + pulse * 2, ex.h + pulse * 2);
+    ctx.strokeStyle = PALETTE.emerald;
+    ctx.lineWidth = 3;
+    ctx.strokeRect(ex.x, ex.y, ex.w, ex.h);
+    ctx.fillStyle = PALETTE.emerald;
+    for (let py = ex.y + 6; py < ex.y + ex.h - 6; py += 10) {
+      const offset = Math.sin(time * 6 + py * 0.1) * 6;
+      ctx.fillRect(ex.x + 10 + offset, py, ex.w - 20, 4);
+    }
+
+    getActiveEchoStates(state.runFrame).forEach(es => {
+      drawOrbCharacter(es.x, es.y, 15, es.scaleX, es.scaleY, es.color, es.accent, 0.78, es.label, 0, es.facing);
+    });
+
+    state.trail.forEach((t, idx) => {
+      const ratio = idx / state.trail.length;
+      ctx.fillStyle = `rgba(0, 240, 255, ${ratio * 0.35})`;
+      const s = Math.round(14 * ratio);
+      ctx.fillRect(Math.round(t.x - s / 2), Math.round(t.y - s / 2), s, s);
+    });
+
+    if (player.charge > 0.1) {
+      ctx.fillStyle = 'rgba(255, 213, 0, 0.65)';
+      for (let i = 1; i <= 5; i++) {
+        const pt = i * 0.08;
+        ctx.fillRect(Math.round(player.x + player.vx * pt - 2), Math.round(player.y + player.vy * pt + 640 * pt * pt - 2), 4, 4);
+      }
+    }
+
+    drawOrbCharacter(player.x, player.y, player.radius, player.scaleX, player.scaleY, '#00f0ff', '#ff2a85', 1, '', player.charge, player.facing);
+
+    state.particles.forEach(p => {
+      ctx.fillStyle = p.color;
+      ctx.globalAlpha = Math.max(0, p.life / p.maxLife);
+      ctx.fillRect(Math.round(p.x - p.size / 2), Math.round(p.y - p.size / 2), p.size, p.size);
+    });
+    ctx.globalAlpha = 1;
+
+    state.floatingTexts.forEach(ft => {
+      ctx.font = 'bold 11px ' + PIXEL_FONT;
+      ctx.fillStyle = ft.color;
+      ctx.globalAlpha = Math.min(1, ft.life * 1.4);
+      ctx.textAlign = 'center';
+      ctx.fillText(ft.text, Math.round(ft.x), Math.round(ft.y));
+    });
+    ctx.globalAlpha = 1;
+
+    if (state.mode === 'PLAYING') renderHUD(lvl);
+
+    if (state.flashAlpha > 0.01) {
+      ctx.fillStyle = state.flashColor;
+      ctx.globalAlpha = state.flashAlpha;
+      ctx.fillRect(0, 0, W, H);
+      state.flashAlpha *= 0.85;
+      ctx.globalAlpha = 1;
+    }
+
+    ctx.restore();
+  }
+
+  let lastTime = performance.now();
+  let accumulator = 0;
+
+  function updateEffects(dt) {
+    for (let i = state.particles.length - 1; i >= 0; i--) {
+      const p = state.particles[i];
+      p.x += p.vx * dt;
+      p.y += p.vy * dt;
+      p.vy += 420 * dt;
+      p.life -= dt;
+      if (p.life <= 0) state.particles.splice(i, 1);
+    }
+    for (let i = state.floatingTexts.length - 1; i >= 0; i--) {
+      const ft = state.floatingTexts[i];
+      ft.y -= 28 * dt;
+      ft.life -= dt;
+      if (ft.life <= 0) state.floatingTexts.splice(i, 1);
+    }
+  }
+
+  function loop(now) {
+    const frameDt = Math.min(0.05, (now - lastTime) / 1000);
+    lastTime = now;
+
+    if (state.mode === 'PLAYING') {
+      accumulator += frameDt;
+      while (accumulator >= FIXED_DT) {
+        updatePhysics(FIXED_DT);
+        updateEffects(FIXED_DT);
+        accumulator -= FIXED_DT;
+      }
+    } else {
+      updateEffects(frameDt);
+    }
+
+    render();
+    requestAnimationFrame(loop);
+  }
+
+  const screens = {
+    title: document.getElementById('screen-title'),
+    how: document.getElementById('screen-how'),
+    levels: document.getElementById('screen-levels'),
+    pause: document.getElementById('screen-pause'),
+    complete: document.getElementById('screen-complete'),
+    ending: document.getElementById('screen-ending')
+  };
+  const hudControls = document.getElementById('hud-controls');
+
+  function hideAllScreens() {
+    Object.values(screens).forEach(s => s && s.classList.add('hidden'));
+  }
+
+  function startPlaying(levelIdx = 0) {
+    sfx.init();
+    hideAllScreens();
+    hudControls.classList.remove('hidden');
+    state.levelTimer = 0;
+    loadLevel(levelIdx, false);
+    state.mode = 'PLAYING';
+  }
+
+  function buildLevelGrid() {
+    const grid = document.getElementById('level-grid');
+    grid.innerHTML = '';
+    LEVELS.forEach((lvl, idx) => {
+      const card = document.createElement('div');
+      const isDone = !!state.completedLevels[idx];
+      const shards = state.collectedShards[idx]?.size || 0;
+      card.className = 'level-card' + (isDone ? ' completed' : '');
+      card.innerHTML = `
+        <div class="level-num">SECTOR 0${lvl.id}</div>
+        <div class="level-name">${lvl.name}</div>
+        <div class="level-meta">${isDone ? '&#9733; RESTORED' : '&#9672; READY'} &bull; SHARDS: ${shards}/3</div>
+      `;
+      card.onclick = () => startPlaying(idx);
+      grid.appendChild(card);
+    });
+  }
+
+  function showCompleteScreen() {
+    hudControls.classList.add('hidden');
+    const lvl = getCurrentLevel();
+    const shards = state.collectedShards[state.levelIndex]?.size || 0;
+    document.getElementById('complete-level-name').textContent = `SECTOR 0${lvl.id} // ${lvl.name}`;
+    document.getElementById('complete-stats').innerHTML = `
+      CLEAR TIME: <span style="color:#00f0ff">${state.levelTimer.toFixed(2)}s</span><br>
+      ACTIVE ECHOES: <span style="color:#ff2a85">${state.echoes.length} / ${MAX_ECHOES}</span><br>
+      SHARDS RECOVERED: <span style="color:#00ff9d">${shards} / 3</span>
+    `;
+    screens.complete.classList.remove('hidden');
+  }
+
+  function showEndingScreen() {
+    hudControls.classList.add('hidden');
+    let totalShards = 0;
+    Object.values(state.collectedShards).forEach(set => { totalShards += set.size; });
+    document.getElementById('final-echo-total').textContent = state.totalEchoesCreated;
+    document.getElementById('final-shard-total').textContent = totalShards;
+    screens.ending.classList.remove('hidden');
+  }
+
+  document.getElementById('btn-play').onclick = () => startPlaying(0);
+  document.getElementById('btn-how').onclick = () => { hideAllScreens(); screens.how.classList.remove('hidden'); };
+  document.getElementById('btn-how-back').onclick = () => { hideAllScreens(); screens.title.classList.remove('hidden'); };
+  document.getElementById('btn-levels').onclick = () => { buildLevelGrid(); hideAllScreens(); screens.levels.classList.remove('hidden'); };
+  document.getElementById('btn-levels-back').onclick = () => { hideAllScreens(); screens.title.classList.remove('hidden'); };
+
+  document.getElementById('btn-resume').onclick = () => { hideAllScreens(); hudControls.classList.remove('hidden'); state.mode = 'PLAYING'; };
+  document.getElementById('btn-pause-restart').onclick = () => { hideAllScreens(); hudControls.classList.remove('hidden'); state.mode = 'PLAYING'; commitRunAsEcho('ECHO SAVED'); };
+  document.getElementById('btn-pause-clear').onclick = () => { hideAllScreens(); hudControls.classList.remove('hidden'); state.mode = 'PLAYING'; purgeEchoes(); };
+  document.getElementById('btn-pause-menu').onclick = () => { hideAllScreens(); hudControls.classList.add('hidden'); state.mode = 'TITLE'; screens.title.classList.remove('hidden'); };
+
+  document.getElementById('btn-next-level').onclick = () => startPlaying((state.levelIndex + 1) % LEVELS.length);
+  document.getElementById('btn-replay-level').onclick = () => startPlaying(state.levelIndex);
+  document.getElementById('btn-ending-menu').onclick = () => { hideAllScreens(); state.mode = 'TITLE'; screens.title.classList.remove('hidden'); };
+
+  document.getElementById('btn-restart').onclick = () => { if (state.mode === 'PLAYING') commitRunAsEcho('ECHO SAVED'); };
+  document.getElementById('btn-clear-echoes').onclick = () => { if (state.mode === 'PLAYING') purgeEchoes(); };
+  document.getElementById('btn-mute').onclick = (e) => {
+    sfx.muted = !sfx.muted;
+    e.target.textContent = sfx.muted ? 'SFX: OFF [M]' : 'SFX: ON [M]';
+  };
+  document.getElementById('btn-pause').onclick = () => {
+    if (state.mode === 'PLAYING') {
+      state.mode = 'PAUSED';
+      hudControls.classList.add('hidden');
+      screens.pause.classList.remove('hidden');
+    }
+  };
+
+  window.addEventListener('keydown', (e) => {
+    if (['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Space'].includes(e.code)) e.preventDefault();
+    if (e.code === 'ArrowLeft' || e.code === 'KeyA') keys.left = true;
+    if (e.code === 'ArrowRight' || e.code === 'KeyD') keys.right = true;
+    if (e.code === 'Space') {
+      if (!keys.space) keys.spaceJustPressed = true;
+      keys.space = true;
+    }
+    if (e.code === 'KeyR' && state.mode === 'PLAYING') commitRunAsEcho('ECHO SAVED');
+    if (e.code === 'KeyC' && state.mode === 'PLAYING') purgeEchoes();
+    if (e.code === 'KeyM') {
+      sfx.muted = !sfx.muted;
+      document.getElementById('btn-mute').textContent = sfx.muted ? 'SFX: OFF [M]' : 'SFX: ON [M]';
+    }
+    if (e.code === 'Escape') {
+      if (state.mode === 'PLAYING') {
+        state.mode = 'PAUSED';
+        hudControls.classList.add('hidden');
+        screens.pause.classList.remove('hidden');
+      } else if (state.mode === 'PAUSED') {
+        hideAllScreens();
+        hudControls.classList.remove('hidden');
+        state.mode = 'PLAYING';
+      }
+    }
+  });
+
+  window.addEventListener('keyup', (e) => {
+    if (e.code === 'ArrowLeft' || e.code === 'KeyA') keys.left = false;
+    if (e.code === 'ArrowRight' || e.code === 'KeyD') keys.right = false;
+    if (e.code === 'Space') keys.space = false;
+  });
+
+  initBackground();
+  loadLevel(0, false);
+  render();
+  requestAnimationFrame(loop);
+})();
+</script>
+</body>
+</html>
